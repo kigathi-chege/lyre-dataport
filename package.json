@@ -1,0 +1,65 @@
+{
+  "name": "@~lyre/dataport",
+  "version": "0.1.0",
+  "description": "Framework-agnostic streaming import/export engine for Node. Owns data-flow (parse → map → validate → batch → sink; source → format → stream); the host owns persistence via thin Sink/Source adapters. CSV in/out, per-row error reporting, bounded batching. An async-iterable Source means a report result set exports with no extra code.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "kigathi@nipate.africa",
+  "keywords": [
+    "csv",
+    "import",
+    "export",
+    "streaming",
+    "etl",
+    "data",
+    "lyre"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kigathi-chege/lyre-dataport.git"
+  },
+  "homepage": "https://github.com/kigathi-chege/lyre-dataport#readme",
+  "bugs": {
+    "url": "https://github.com/kigathi-chege/lyre-dataport/issues"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "zod": "^3.23.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.5",
+    "typescript": "^6.0.2",
+    "vitest": "^2.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
