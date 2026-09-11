@@ -1,6 +1,6 @@
 {
   "name": "@~lyre/dataport",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework-agnostic streaming import/export engine for Node. Owns data-flow (parse → map → validate → batch → sink; source → format → stream); the host owns persistence via thin Sink/Source adapters. CSV in/out, per-row error reporting, bounded batching. An async-iterable Source means a report result set exports with no extra code.",
   "type": "module",
   "sideEffects": false,

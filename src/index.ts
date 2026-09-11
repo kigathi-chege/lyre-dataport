@@ -11,5 +11,12 @@ export * from './types.js';
 export { runImport, ImportCapError } from './import.js';
 export { createExportStream, toCsvString } from './export.js';
 export { csvReader, arrayReader } from './readers.js';
-export { parseCsv, parseCsvRows, csvCell } from './csv.js';
+export {
+  parseCsv,
+  parseCsvRows,
+  csvCell,
+  detectDelimiter,
+  stripBom,
+  findHeaderRow,
+} from './csv.js';
 export { mapRow, isEmptyRow, RowRejection } from './map.js';

@@ -203,3 +203,49 @@ describe('createExportStream', () => {
     expect(csv).toContain('Cynthia,175.00');
   });
 });
+
+/**
+ * Dialect tolerance. Each case here is a file a spreadsheet really produces and the old
+ * comma-only, row-0-is-the-header parser silently turned into zero usable columns.
+ */
+describe('parseCsv — real-world dialects', () => {
+  const HEADER = 'Name,Phone,Email';
+  const EXPECT = { Name: 'Jane Doe', Phone: '+254700000000', Email: 'jane@x.com' };
+
+  it('parses a plain comma file (baseline)', () => {
+    expect(parseCsv(`${HEADER}\r\nJane Doe,+254700000000,jane@x.com\r\n`)[0]).toEqual(EXPECT);
+  });
+
+  it('parses a semicolon file (Excel in comma-decimal locales)', () => {
+    expect(parseCsv('Name;Phone;Email\r\nJane Doe;+254700000000;jane@x.com\r\n')[0]).toEqual(EXPECT);
+  });
+
+  it('parses a tab-delimited file', () => {
+    expect(parseCsv('Name\tPhone\tEmail\r\nJane Doe\t+254700000000\tjane@x.com\r\n')[0]).toEqual(EXPECT);
+  });
+
+  it('strips a UTF-8 BOM so the first header is not corrupted', () => {
+    const rec = parseCsv(`﻿${HEADER}\r\nJane Doe,+254700000000,jane@x.com\r\n`)[0]!;
+    expect(Object.keys(rec)[0]).toBe('Name');
+    expect(rec).toEqual(EXPECT);
+  });
+
+  it('skips a title row above the header (report-style export)', () => {
+    expect(parseCsv(`Contacts Export 2026\r\n${HEADER}\r\nJane Doe,+254700000000,jane@x.com\r\n`)[0])
+      .toEqual(EXPECT);
+  });
+
+  it('skips leading blank lines', () => {
+    expect(parseCsv(`\r\n\r\n${HEADER}\r\nJane Doe,+254700000000,jane@x.com\r\n`)[0]).toEqual(EXPECT);
+  });
+
+  it('does not mistake a quoted comma in a header for the delimiter', () => {
+    const rec = parseCsv('"Last, First";Phone\r\n"Doe, Jane";+254700000000\r\n')[0]!;
+    expect(rec['Last, First']).toBe('Doe, Jane');
+    expect(rec['Phone']).toBe('+254700000000');
+  });
+
+  it('keeps a single-column file parseable (no following wider row to imply a title)', () => {
+    expect(parseCsv('Email\r\njane@x.com\r\n')[0]).toEqual({ Email: 'jane@x.com' });
+  });
+});

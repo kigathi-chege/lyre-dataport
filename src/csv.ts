@@ -6,10 +6,85 @@
  */
 import type { RawRow, ColumnSpec } from './types.js';
 
+/**
+ * Detect the delimiter from the header line: `,` `;` or tab, whichever occurs most OUTSIDE quotes.
+ *
+ * Not a dialect engine — one heuristic for one real problem. Excel writes `;` in any locale whose
+ * decimal separator is a comma, and spreadsheet exports write tabs. Parsed as comma, such a file
+ * yields ONE column per row, every header lookup misses, and the import silently does nothing.
+ */
+export function detectDelimiter(text: string): string {
+  const candidates = [',', ';', '\t'];
+  let line = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      line += ch;
+      continue;
+    }
+    if (!inQuotes && (ch === '\n' || ch === '\r')) break;
+    line += ch;
+  }
+  // Count only unquoted occurrences: a header like `"Last, First"` must not vote for comma.
+  const score = (d: string) => {
+    let n = 0;
+    let q = false;
+    for (const ch of line) {
+      if (ch === '"') q = !q;
+      else if (!q && ch === d) n++;
+    }
+    return n;
+  };
+  let best = ',';
+  let bestScore = 0;
+  for (const d of candidates) {
+    const s = score(d);
+    if (s > bestScore) {
+      bestScore = s;
+      best = d;
+    }
+  }
+  return best;
+}
+
+/** Strip a UTF-8 BOM, which Excel prepends and which would otherwise corrupt the first header. */
+export function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/**
+ * Find the header row, skipping blank lines and a title/preamble line above it.
+ *
+ * Spreadsheet "report" exports often put a title in row 1 (`Contacts Export 2026`), which would
+ * otherwise BECOME the header — the real header is then read as data and every column lookup
+ * misses. A preamble line is recognised by shape, not content: it has one cell where a following
+ * line has several.
+ *
+ * Returns the index of the row to treat as the header, or -1 when there is nothing usable.
+ */
+export function findHeaderRow(rows: readonly string[][]): number {
+  for (let i = 0; i < rows.length; i++) {
+    const cells = rows[i]!;
+    const nonEmpty = cells.filter((c) => c.trim() !== '').length;
+    if (nonEmpty === 0) continue; // blank line
+    // A single-cell line followed by a wider one is a title, not a header.
+    if (nonEmpty === 1) {
+      const next = rows[i + 1];
+      if (next && next.filter((c) => c.trim() !== '').length > 1) continue;
+    }
+    return i;
+  }
+  return -1;
+}
+
 /** Parse a full CSV string into records keyed by the header row. */
-export function parseCsv(text: string): RawRow[] {
-  const rows = parseCsvRows(text);
-  if (rows.length === 0) return [];
+export function parseCsv(text: string, delimiter?: string): RawRow[] {
+  const allRows = parseCsvRows(text, delimiter);
+  const headerAt = findHeaderRow(allRows);
+  if (headerAt < 0) return [];
+  const rows = allRows.slice(headerAt);
   const header = rows[0]!.map((h) => h.trim());
   const out: RawRow[] = [];
   for (let i = 1; i < rows.length; i++) {
@@ -23,8 +98,15 @@ export function parseCsv(text: string): RawRow[] {
   return out;
 }
 
-/** Low-level: CSV string → array of string-cell arrays (header included). */
-export function parseCsvRows(text: string): string[][] {
+/**
+ * Low-level: CSV string → array of string-cell arrays (header included).
+ *
+ * `delimiter` defaults to whatever {@link detectDelimiter} finds on the header line. A UTF-8 BOM is
+ * stripped first, so the first header is `Name` and not `﻿Name`.
+ */
+export function parseCsvRows(text: string, delimiter?: string): string[][] {
+  text = stripBom(text);
+  const delim = delimiter ?? detectDelimiter(text);
   const rows: string[][] = [];
   let field = '';
   let row: string[] = [];
@@ -64,7 +146,7 @@ export function parseCsvRows(text: string): string[][] {
       i++;
       continue;
     }
-    if (ch === ',') {
+    if (ch === delim) {
       endField();
       i++;
       continue;
